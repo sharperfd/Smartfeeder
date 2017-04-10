@@ -13,7 +13,7 @@
         var clientId = "ws" + Math.random();
 					
         // Create a client instance
-         client = new Paho.MQTT.Client("m11.cloudmqtt.com", 30263, clientId);
+         client = new Paho.MQTT.Client("m11.cloudmqtt.com", 30277, clientId);
 
         // set callback handlers
         client.onConnectionLost = onConnectionLost;
@@ -22,7 +22,7 @@
         // connect the client
         var options = {
           useSSL: true,
-          userName: "your name!!",
+          userName: "your username!!",
           password: "your password!!",
           onSuccess:onConnect,
           onFailure:doFail
@@ -83,13 +83,23 @@
 			var x = document.getElementById("token_text").value;			
 			command = new Paho.MQTT.Message(x);
 			command.destinationName = "/TOKEN";
-			client.send(command);			
+			client.send(command);
+			alert("เปลี่ยนปลายทางการแจ้งเตือนสำเร็จ !!");
+			location.reload();			
+		}
+		
+		function sendMsg2()
+		{			
+			command = new Paho.MQTT.Message("GETFOOD");
+			command.destinationName = "/TOKEN";
+			client.send(command);
+			alert("ให้อาหารเจ้าเหมียวแล้ว !!");					
 		}
 		
     </script>
 	<style type="text/css">		
 		body {
-			background: url(Cats.jpg) no-repeat center center fixed;
+			background: url(BG_sharp.jpg) no-repeat center center fixed;
 			-webkit-background-size: cover;
 			-moz-background-size: cover;
 			-o-background-size: cover;
@@ -172,7 +182,7 @@
 			<center>
 				<?php
 					$link = mysql_connect('localhost','your username!!','your password!!')or die("ติดต่อฐานข้อมูลไม่ได้");
-	                mysql_select_db('your database',$link)or die("ติดต่อฐานข้อมูลไม่ได้");
+	                mysql_select_db('your database!!',$link)or die("ติดต่อฐานข้อมูลไม่ได้");
 					$result = mysql_query('SELECT Auto_PK_CAT,TimeText
 					FROM cat
 					ORDER BY TimeCatFeeding_CAT');
@@ -181,7 +191,9 @@
 						die('Invalid query:'. mysql_error());						
 					}
 					echo "<div style ='font:18px/35px Arial,tahoma,sans-serif;color:#ff0000'> จำนวนครั้งการให้อาหารเจ้าเหมียว คือ   ".mysql_num_rows($result)." ครั้ง<br> </div>";
+                                     
 				?>
+                                      <button  class="ui-shadow ui-btn-inline ui-nodisc-icon ui-alt-icon ui-btn ui-corner-all" onclick="sendMsg2()" ><FONT Color = Green>  กดเพื่อให้อาหารเจ้าเหมียวทันที 1 ครั้ง  </FONT></button>
 			</center>
 			<table data-role = "table" data-mode = "columntoggle" id="my_table2" class = "ui-body-a ui-shadow ui-responsive table-strip" data-column-btn-text="แสดงคอลัมน์" data-column-popup-theme="a" data-column-btn-theme="b">
 				<thead>

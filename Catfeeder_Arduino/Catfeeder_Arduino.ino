@@ -3,7 +3,7 @@
 #include <PubSubClient.h>
 #include <Arduino.h>
 
-const int BUFSIZE = 50; 
+const int BUFSIZE = 50; //size off ssid and password
 char buf[BUFSIZE];
 char buf2[BUFSIZE];
 char buf3[BUFSIZE];
@@ -16,22 +16,23 @@ boolean eeprom_is_addr_ok(int addr) {
 
 String data1,data2,data3;   
 
-const char* ssid = " "; //edit
-const char* password = "  "; //edit
+const char* ssid = " "; 
+const char* password = "  "; 
 
-#define mqtt_server "" //edit
-#define mqtt_port 12345 //edit
-#define mqtt_user "" //edit
-#define mqtt_password "" //edit
+#define mqtt_server "m11.cloudmqtt.com" //edit
+#define mqtt_port 10169 //edit
+#define mqtt_user " " //edit
+#define mqtt_password " " //edit
 
 #define PubTopic1 "/BT1"
 #define SubTopic1 "/TOKEN"
+
 
 const int motorPin1 = D1;
 const int motorPin2 = D2;
 const int motorPinEnablePWM = D5;
 
-String LINE_TOKEN = "";//edit
+String LINE_TOKEN = "4YmQSoBzrZYQffL6mI8iJLUH8Js7KcIdz55i2QiyxA3"; //edit
 String message = "%F0%9F%98%BD%20%20%E0%B8%81%E0%B8%B4%E0%B8%99%E0%B8%82%E0%B9%89%E0%B8%B2%E0%B8%A7%E0%B9%81%E0%B8%A5%E0%B9%89%E0%B8%A7%E0%B8%99%E0%B8%B0%E0%B9%80%E0%B8%AB%E0%B8%A1%E0%B8%B5%E0%B9%8A%E0%B8%A2%E0%B8%A7%20";
 
 const int buttonPin = D3;
@@ -45,7 +46,10 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 boolean eeprom_write_bytes(int startAddr, const byte* array, int numBytes) {
+// counter
     int i;
+// both first byte and last byte addresses must fall within
+// the allowed range 
     if (!eeprom_is_addr_ok(startAddr) || !eeprom_is_addr_ok(startAddr + numBytes)) {
       return false;
     }
@@ -56,6 +60,7 @@ boolean eeprom_write_bytes(int startAddr, const byte* array, int numBytes) {
     return true;
 }
 
+
 boolean eeprom_write_string(int addr, const char* string) {
     int numBytes; // actual number of bytes to be written
     //write the string contents plus the string terminator byte (0x00)
@@ -63,12 +68,14 @@ boolean eeprom_write_string(int addr, const char* string) {
     return eeprom_write_bytes(addr, (const byte*)string, numBytes);
 }
 
+
 boolean eeprom_read_string(int addr, char* buffer, int bufSize) {
     byte ch; // byte read from eeprom
     int bytesRead; // number of bytes read so far
     if (!eeprom_is_addr_ok(addr)) { // check start address
       return false;
     }
+
     if (bufSize == 0) { // how can we store bytes in an empty buffer ?
      return false;
     }
@@ -98,22 +105,28 @@ boolean eeprom_read_string(int addr, char* buffer, int bufSize) {
     return true;
 }
 
+
+
 void setup() {
   EEPROM.begin(512);
   Serial.begin(115200);
+
   eeprom_read_string(5, buf, BUFSIZE);
   eeprom_read_string(60, buf2, BUFSIZE);
   eeprom_read_string(200, buf3, BUFSIZE);
-  ssid = buf; 
-  password = buf2;
-  LINE_TOKEN = buf3;  
+
+  ssid=buf; //set data from eeprom address 5 to password
+  password=buf2;
+  LINE_TOKEN=buf3;
+  
   pinMode(buttonPin, INPUT_PULLUP);
   digitalWrite(buttonPin, HIGH);
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin, LOW);
   pinMode(motorPin1, OUTPUT);
   pinMode(motorPin2, OUTPUT);
-  pinMode(motorPinEnablePWM, OUTPUT); 
+  pinMode(motorPinEnablePWM, OUTPUT);
+  
   Serial.print("Connecting to ");
   Serial.println(ssid);
   WiFi.begin(ssid, password);
@@ -126,12 +139,14 @@ void setup() {
     Serial.print(".");
     count++;
   }
+
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   Serial.print("LINE TOKEN : ");
   Serial.println(LINE_TOKEN);
+
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
 }
@@ -146,14 +161,47 @@ void callback(char* topic, byte* payload, unsigned int length) {
   while (i<length) {
      msg += (char)payload[i++];
   }
-  Serial.println(msg);  
-  for (int i = 170; i < 512; i++)
-  {
-    EEPROM.write(i, 0);   //clear eeprom 
+  Serial.println(msg);
+   
+   if (msg == "GETFOOD") {
+      analogWrite(motorPinEnablePWM, 450);
+      digitalWrite(motorPin1, LOW);
+      digitalWrite(motorPin2, HIGH); 
+      delay(500);
+      //analogWrite(motorPinEnablePWM, 0);
+      digitalWrite(motorPin1, LOW);
+      digitalWrite(motorPin2, LOW); 
+      delay(500);
+      analogWrite(motorPinEnablePWM, 450);
+      digitalWrite(motorPin1, HIGH);
+      digitalWrite(motorPin2, LOW); 
+      delay(480);//Time to back spin
+      //analogWrite(motorPinEnablePWM, 0);
+      digitalWrite(motorPin1, LOW);
+      digitalWrite(motorPin2, LOW);
+      Serial.println("Food have feeder already by yourself !");
+
+      if(WiFi.status() == WL_CONNECTED){          
+          Serial.println("Online !!");
+          client.setServer(mqtt_server, mqtt_port);
+          client.publish(PubTopic1,"eat");  
+          Serial.println("Data eat sent to MQTT!!"); 
+          Line_Notify(message);
+          
+          if (client.connect("ESP8266Client", mqtt_user, mqtt_password)) {
+            Serial.println("connected_MQTT");
+          }   
+      }   
   }
-  strcpy(buf3, msg.c_str()); //copy TokenLine to buf3 
-  eeprom_write_string(200, buf3); // write buf to eeprom address 200  
-  LINE_TOKEN = msg;
+  else{ 
+    for (int i = 170; i < 512; i++)
+    {
+      EEPROM.write(i, 0);   //clear eeprom 
+    }
+    strcpy(buf3, msg.c_str()); //copy TokenLine to buf3 
+    eeprom_write_string(200, buf3); // write buf to eeprom address 200  
+    LINE_TOKEN = msg;
+  }
   
 }
 
@@ -168,67 +216,52 @@ void loop() {
   if(buttonVal == LOW) {
     Serial.println("The cat eats the food !!");
     analogWrite(motorPinEnablePWM, 450);
-    digitalWrite(motorPin1, HIGH);
-    digitalWrite(motorPin2, LOW); 
+    digitalWrite(motorPin1, LOW);
+    digitalWrite(motorPin2, HIGH); 
     delay(500);
     digitalWrite(motorPin1, LOW);
     digitalWrite(motorPin2, LOW); 
     delay(500);
     analogWrite(motorPinEnablePWM, 450);
-    digitalWrite(motorPin1, LOW);
-    digitalWrite(motorPin2, HIGH); 
+    digitalWrite(motorPin1, HIGH);
+    digitalWrite(motorPin2, LOW); 
     delay(480);//Time to back spin
     digitalWrite(motorPin1, LOW);
     digitalWrite(motorPin2, LOW);
-    if(WiFi.status() == WL_CONNECTED){     
+    if(WiFi.status() == WL_CONNECTED){
+      
       if(CheckLogin == 1){
         Serial.println("Online !!");
         client.setServer(mqtt_server, mqtt_port);
         client.publish(PubTopic1,"eat");  
         Serial.println("Data eat sent to MQTT!!"); 
         Line_Notify(message);
-      }    
+      }
+      
       if (client.connect("ESP8266Client", mqtt_user, mqtt_password)) {
         Serial.println("connected_MQTT");
       } 
       client.publish(PubTopic1,"eat");
       Serial.println("Data eat sent to MQTT!!");
       Line_Notify(message);
-      CheckLogin=0;       
+      CheckLogin=0;
+        
     }
     if (WiFi.status() != WL_CONNECTED){
       CheckLogin = 1;
     }
-    delay(2500);
+    delay(1000);
   }
   
   if(WiFi.status() == WL_CONNECTED){
     client.setServer(mqtt_server, mqtt_port);
     client.setCallback(callback);
     if (client.connect("ESP8266Client", mqtt_user, mqtt_password)) {
-      client.subscribe(SubTopic1);           
+      client.subscribe(SubTopic1);            
     } 
   }
   client.loop(); 
   delay(13);
-}
-
-
-void checkStatusConnect(){
-  if (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");   
-    if (client.connect("ESP8266Client", mqtt_user, mqtt_password)) {
-      Serial.println("connected");
-      client.subscribe(SubTopic1);           
-    } 
-    else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      delay(5000);
-      return;
-    }
-  }   
 }
 
 void reConnect(){
@@ -245,17 +278,18 @@ void reConnect(){
   eeprom_write_string(5, buf);  //write buf to eeprom address 5
   strcpy(buf2, data2.c_str()); //copy password to buf2
   Serial.print(buf2);
-  eeprom_write_string(60, buf2); // write buf to eeprom address 60 
+  eeprom_write_string(60, buf2); // write buf to eeprom address 60
+  
   int x=0;
   WiFi.begin(ssid2, pass2);
   while (WiFi.status() != WL_CONNECTED) {
-      x=x+1;
-      delay(1000);
-      Serial.print(".");
-      if (x==15) 
-      {
-        break;
-      }
+            x=x+1;
+            delay(1000);
+            Serial.print(".");
+            if (x==15) //wait for reconnect 15 second
+            {
+              break;
+            }
   }
 }
 
@@ -286,7 +320,7 @@ void Line_Notify(String message) {
     if (line == "\r") {
       break;
     }  
-  }
+  } 
 }
 
 
